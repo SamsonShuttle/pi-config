@@ -1,7 +1,17 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { ExtensionAPI, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { VERSION } from "@earendil-works/pi-coding-agent";
 
 type TuiHandle = { requestRender: () => void };
+
+type CodexQuota = {
+  fiveHourLeft: number;
+  weekLeft: number;
+  fiveHourResetMinutes: number;
+  weekResetHours: number;
+};
 
 // Change these once to recolor the whole header.
 // These values point at colors in ~/.pi/agent/themes/my-theme.json.
@@ -18,6 +28,8 @@ type TuiHandle = { requestRender: () => void };
 // - helpColor: old/general help color.
 // - tipKeyColor: highlighted command keys in the power tips.
 // - tipTextColor: descriptions in the power tips.
+// - quotaLabelColor: Codex quota labels.
+// - quotaValueColor: Codex quota percentage/time values.
 //
 // Valid theme tokens include: accent, borderAccent, success, error,
 // warning, muted, dim, text, toolTitle, mdHeading, syntaxKeyword, etc.
@@ -33,6 +45,8 @@ const HEADER_STYLE = {
   helpColor: "dim" as ThemeColor,
   tipKeyColor: "warning" as ThemeColor,
   tipTextColor: "muted" as ThemeColor,
+  quotaLabelColor: "warning" as ThemeColor,
+  quotaValueColor: "success" as ThemeColor,
 };
 
 function visibleLength(line: string): number {
@@ -44,6 +58,45 @@ function center(line: string, width: number): string {
   return " ".repeat(pad) + line;
 }
 
+function formatCodexQuota(quota: CodexQuota, theme: Theme): string {
+  const label = (s: string) => theme.fg(HEADER_STYLE.quotaLabelColor, s);
+  const value = (s: string) => theme.fg(HEADER_STYLE.quotaValueColor, s);
+  const dim = (s: string) => theme.fg("dim", s);
+  return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}`;
+}
+
+async function fetchCodexQuota(): Promise<CodexQuota | undefined> {
+  try {
+    const authPath = path.join(os.homedir(), ".codex", "auth.json");
+    const auth = JSON.parse(fs.readFileSync(authPath, "utf8"));
+    const token = auth?.tokens?.access_token;
+    if (!token) return undefined;
+
+    const response = await fetch("https://chatgpt.com/backend-api/codex/usage", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "User-Agent": "pi-codex-quota-header",
+      },
+    });
+    if (!response.ok) return undefined;
+
+    const data = await response.json() as any;
+    const primary = data?.rate_limit?.primary_window;
+    const secondary = data?.rate_limit?.secondary_window;
+    if (!primary || !secondary) return undefined;
+
+    return {
+      fiveHourLeft: Math.max(0, 100 - Math.round(primary.used_percent ?? 0)),
+      weekLeft: Math.max(0, 100 - Math.round(secondary.used_percent ?? 0)),
+      fiveHourResetMinutes: Math.max(0, Math.round((primary.reset_after_seconds ?? 0) / 60)),
+      weekResetHours: Math.max(0, Math.round((secondary.reset_after_seconds ?? 0) / 3600)),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 class AnimatedPiHeader {
   private frame = 0;
   private timer: ReturnType<typeof setInterval>;
@@ -51,6 +104,7 @@ class AnimatedPiHeader {
   constructor(
     private tui: TuiHandle,
     private theme: Theme,
+    private getQuota: () => CodexQuota | undefined,
   ) {
     this.timer = setInterval(() => {
       this.frame++;
@@ -100,72 +154,228 @@ class AnimatedPiHeader {
 
     const frames = [
       [
-        "               ██               ",
-        "              ████              ",
-        "             ██████             ",
-        "            ████████            ",
-        "           ██████████           ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "         ██████████████         ",
-        "        ████ ██████ ████        ",
-        "       ███   ██████   ███       ",
-        "             ██████             ",
-        "             ██████             ",
-        "            π  PI  π            ",
-        "           π π PI π π           ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "            │            ",
+        "            π            ",
       ],
       [
-        "               ██               ",
-        "              ████              ",
-        "             ██████             ",
-        "            ████████            ",
-        "           ██████████           ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "         ██████████████         ",
-        "        ████ ██████ ████        ",
-        "       ███   ██████   ███       ",
-        "             ██████             ",
-        "            ████████            ",
-        "           π  PI PI  π          ",
-        "          π π π PI π π π        ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "            │            ",
+        "            │            ",
+        "            π            ",
       ],
       [
-        "               ██               ",
-        "              ████              ",
-        "             ██████             ",
-        "            ████████            ",
-        "           ██████████           ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "         ██████████████         ",
-        "        ████ ██████ ████        ",
-        "       ███   ██████   ███       ",
-        "             ██████             ",
-        "           ██████████           ",
-        "          π PI π PI π           ",
-        "         π π PI PI π π          ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "            │            ",
+        "            │            ",
+        "            π            ",
       ],
       [
-        "               ██               ",
-        "              ████              ",
-        "             ██████             ",
-        "            ████████            ",
-        "           ██████████           ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "          ████████████          ",
-        "         ██████████████         ",
-        "        ████ ██████ ████        ",
-        "       ███   ██████   ███       ",
-        "             ██████             ",
-        "          ████████████          ",
-        "         π PI π PI PI π         ",
-        "        π π PI π PI π π         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "            *            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "           ***           ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "          * * *          ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "          BOOM           ",
+        "                         ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄             ▄█▄  ",
+        "  ███             ███  ",
+        "  ▀ ▀             ▀ ▀  ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄             ▄█▄  ",
+        "  ███             ███  ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "  ▄█▄             ▄█▄  ",
+        "          BOOM           ",
+        "                         ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "                         ",
+        "            │            ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "            │            ",
+        "            │            ",
+        "            │            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄     ▄█▄     ▄█▄  ",
+        "  ███     ███     ███  ",
+        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
+        "            *            ",
+        "           ***           ",
+        "            *            ",
+        "            π            ",
+      ],
+      [
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "  ▄█▄             ▄█▄  ",
+        "  ███    BOOM     ███  ",
+        "  ▀ ▀             ▀ ▀  ",
+        "                         ",
+        "                         ",
+        "                         ",
+        "            π            ",
       ],
     ];
 
@@ -173,6 +383,7 @@ class AnimatedPiHeader {
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
     const logo = frames[this.frame % frames.length];
     const colors = HEADER_STYLE.artColors;
+    const quota = this.getQuota();
 
     return [
       "",
@@ -186,6 +397,7 @@ class AnimatedPiHeader {
         `${color(HEADER_STYLE.leftDotColor, "●")} ${color(HEADER_STYLE.subtitleColor, "custom coding terminal")} ${color(HEADER_STYLE.rightDotColor, "●")} ${color(HEADER_STYLE.subtitleColor, "atom one dark black")}`,
         width,
       ),
+      ...(quota ? [center(formatCodexQuota(quota, this.theme), width)] : []),
       center(
         `${color(HEADER_STYLE.tipKeyColor, "@file")} ${color(HEADER_STYLE.tipTextColor, "attach/read files")}  ${color(HEADER_STYLE.tipKeyColor, "!cmd")} ${color(HEADER_STYLE.tipTextColor, "run shell + share output")}  ${color(HEADER_STYLE.tipKeyColor, "!!cmd")} ${color(HEADER_STYLE.tipTextColor, "run shell private")}`,
         width,
@@ -200,6 +412,10 @@ class AnimatedPiHeader {
 
   invalidate() {}
 
+  requestRender() {
+    this.tui.requestRender();
+  }
+
   dispose() {
     clearInterval(this.timer);
   }
@@ -207,20 +423,39 @@ class AnimatedPiHeader {
 
 export default function customHeader(pi: ExtensionAPI) {
   let activeHeader: AnimatedPiHeader | undefined;
+  let quota: CodexQuota | undefined;
+  let quotaTimer: ReturnType<typeof setInterval> | undefined;
 
   pi.on("session_start", async (_event, ctx) => {
     if (!ctx.hasUI) return;
 
+    const updateQuota = async () => {
+      quota = await fetchCodexQuota();
+      if (quota) {
+        ctx.ui.setStatus("codex-quota", formatCodexQuota(quota, ctx.ui.theme));
+      } else {
+        ctx.ui.setStatus("codex-quota", ctx.ui.theme.fg("dim", "Codex quota unavailable"));
+      }
+      activeHeader?.invalidate();
+      activeHeader?.requestRender();
+    };
+
     ctx.ui.setHeader((tui, theme) => {
       activeHeader?.dispose();
-      activeHeader = new AnimatedPiHeader(tui, theme);
+      activeHeader = new AnimatedPiHeader(tui, theme, () => quota);
       return activeHeader;
     });
+
+    await updateQuota();
+    quotaTimer = setInterval(updateQuota, 5 * 60 * 1000);
   });
 
   pi.on("session_shutdown", async () => {
     activeHeader?.dispose();
     activeHeader = undefined;
+    if (quotaTimer) clearInterval(quotaTimer);
+    quotaTimer = undefined;
+    quota = undefined;
   });
 
   pi.registerCommand("builtin-header", {
