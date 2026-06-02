@@ -165,236 +165,74 @@ class AnimatedPiHeader {
     //   ],
     // ];
 
-    const frames = [
-      [
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "            │            ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "            │            ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "            *            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "           ***           ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "          * * *          ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "          BOOM           ",
-        "                         ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄             ▄█▄  ",
-        "  ███             ███  ",
-        "  ▀ ▀             ▀ ▀  ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄             ▄█▄  ",
-        "  ███             ███  ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "  ▄█▄             ▄█▄  ",
-        "          BOOM           ",
-        "                         ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "                         ",
-        "            │            ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "            │            ",
-        "            │            ",
-        "            │            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄     ▄█▄     ▄█▄  ",
-        "  ███     ███     ███  ",
-        "  ▀ ▀     ▀ ▀     ▀ ▀  ",
-        "            *            ",
-        "           ***           ",
-        "            *            ",
-        "            π            ",
-      ],
-      [
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "  ▄█▄             ▄█▄  ",
-        "  ███    BOOM     ███  ",
-        "  ▀ ▀             ▀ ▀  ",
-        "                         ",
-        "                         ",
-        "                         ",
-        "            π            ",
-      ],
-    ];
+    const buildInvaderFrame = (frame: number): string[] => {
+      const width = 33;
+      const height = 13;
+      const grid = Array.from({ length: height }, () => Array.from({ length: width }, () => " "));
+      const put = (x: number, y: number, text: string) => {
+        if (y < 0 || y >= height) return;
+        for (let i = 0; i < text.length; i++) {
+          const xx = x + i;
+          if (xx >= 0 && xx < width && text[i] !== " ") grid[y]![xx] = text[i]!;
+        }
+      };
+
+      // Classic Space Invaders-style loop:
+      // - aliens move in unison left/right
+      // - after several steps they drop down
+      // - π cannon shoots upward
+      // - hit aliens explode and disappear for the rest of the loop
+      const cycle = frame % 32;
+      const wave = Math.floor(cycle / 4);
+      const xOffsets = [0, 1, 2, 1, 0, -1, -2, -1];
+      const xShift = xOffsets[wave % xOffsets.length]!;
+      const yShift = Math.floor(wave / 4);
+      const bulletY = 11 - cycle;
+      const boomPhase = cycle >= 11 && cycle <= 14;
+      const secondBoomPhase = cycle >= 23 && cycle <= 26;
+
+      const invader = ["▄█▄", "███", "▀ ▀"];
+      const positions = [
+        [4, 0], [14, 0], [24, 0],
+        [4, 5], [14, 5], [24, 5],
+      ];
+
+      for (let idx = 0; idx < positions.length; idx++) {
+        const [baseX, baseY] = positions[idx]!;
+        const hitFirst = idx === 4 && cycle > 14;
+        const hitSecond = idx === 1 && cycle > 26;
+        const exploding = (idx === 4 && boomPhase) || (idx === 1 && secondBoomPhase);
+        if (hitFirst || hitSecond) continue;
+        const x = baseX + xShift;
+        const y = baseY + yShift;
+        if (exploding) {
+          put(x - 1, y + 1, " BOOM ");
+        } else {
+          put(x, y, invader[0]!);
+          put(x, y + 1, invader[1]!);
+          put(x, y + 2, invader[2]!);
+        }
+      }
+
+      // Player cannon: the mathematical π symbol.
+      put(16, 12, "π");
+
+      // Player bullet.
+      if (bulletY >= 0 && bulletY < 12 && !boomPhase && !secondBoomPhase) {
+        put(16, bulletY, "│");
+      }
+
+      // Small explosion bloom.
+      if (boomPhase || secondBoomPhase) {
+        put(15, 9, "***");
+      }
+
+      return grid.map((row) => row.join(""));
+    };
 
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
-    const logo = frames[this.frame % frames.length];
+    const logo = buildInvaderFrame(this.frame);
     const quota = this.getQuota();
 
     return [
