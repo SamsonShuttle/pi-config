@@ -95,8 +95,7 @@ function formatCodexQuota(quota: CodexQuota, theme: Theme): string {
   const label = (s: string) => theme.fg(HEADER_STYLE.quotaLabelColor, s);
   const value = (s: string) => theme.fg(HEADER_STYLE.quotaValueColor, s);
   const dim = (s: string) => theme.fg("dim", s);
-  const stale = quota.stale ? dim(" cached") : "";
-  return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}${stale}`;
+  return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}`;
 }
 
 function formatArcadeScore(quota: CodexQuota | undefined, theme: Theme): string {
@@ -104,11 +103,9 @@ function formatArcadeScore(quota: CodexQuota | undefined, theme: Theme): string 
   const score = String(quota?.fiveHourUsed ?? 0).padStart(7, "0");
   const highScore = String(quota?.weekUsed ?? 0).padStart(7, "0");
   const lives = quota ? "πππ" : "π??";
-  const cached = quota?.stale ? fg("dim", " CACHED") : "";
-
   // SCORE = 5-hour quota used %, HI-SCORE = weekly quota used %.
   // The endpoint currently exposes percentages/reset windows, not raw token counts.
-  return `${fg("success", "SCORE<π>")} ${fg("text", score)}   ${fg("warning", "HI-SCORE")} ${fg("text", highScore)}   ${fg("success", "LIVES")} ${fg("accent", lives)}${cached}`;
+  return `${fg("success", "SCORE<π>")} ${fg("text", score)}   ${fg("warning", "HI-SCORE")} ${fg("text", highScore)}   ${fg("success", "LIVES")} ${fg("accent", lives)}`;
 }
 
 function saveCodexQuotaCache(quota: CodexQuota) {
