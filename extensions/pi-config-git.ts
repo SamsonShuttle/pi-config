@@ -1,3 +1,13 @@
+/**
+ * Git helper commands for this public Pi config repo.
+ *
+ * Adds:
+ * - `/pi-config-status` to show `git status --short` for `~/.pi/agent`.
+ * - `/pi-config-push [message]` to stage curated config files, commit, and push.
+ *
+ * It intentionally stages only safe config paths, not sessions, auth, cache,
+ * tmp files, or the wider `~/.pi` directory.
+ */
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";

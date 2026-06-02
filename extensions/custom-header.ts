@@ -1,6 +1,24 @@
 // @ts-nocheck
 /* eslint-disable */
 /* prettier-ignore */
+/**
+ * Custom Pi terminal header and Codex quota status extension.
+ *
+ * What this file does:
+ * - Replaces Pi's built-in startup header with an animated PI INVADERS scene.
+ * - Shows an arcade-style score line based on Codex quota used percentages.
+ * - Shows Codex quota remaining/reset info in the header and status/footer.
+ * - Registers `/codex-quota-refresh` to manually refresh quota.
+ * - Registers `/builtin-header` to restore Pi's default header for the session.
+ *
+ * Important:
+ * - Header/footer UI is local only; it is not sent to the model and does not
+ *   consume prompt/context tokens.
+ * - Codex auth is read from `~/.codex/auth.json` at runtime only. Do not commit
+ *   that file.
+ * - Tweak colors/speed in `HEADER_STYLE` and animation timing in
+ *   `SPACE_INVADER_ANIMATION` below.
+ */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";

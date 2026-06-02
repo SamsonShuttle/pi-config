@@ -1,3 +1,6 @@
+# Ignore private/runtime files so this public Pi config repo stays share-safe.
+# This repo should contain only curated settings, themes, extensions, and docs.
+
 # Secrets / credentials
 /auth.json
 
