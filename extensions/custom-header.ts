@@ -148,6 +148,14 @@ const PI_BLOCK_SPRITE = [
   "  π π π π   ",
 ] as const;
 
+const PI_CODE_SPRITE = [
+  "███████. ██.     ███████. ███████. █████.   ███████.",
+  "██.  ██. ██.     ██.      ██.  ██  ██.  ██  ██      ",
+  "███████. ██.     ██.      ██.  ██  ██.  ██. ███████.",
+  "██.      ██.     ██.      ██.  ██  ██.  ██. ██      ",
+  "██.      ██.     ███████. ███████  █████.   ███████.",
+] as const;
+
 function alienShift(step: number): number {
   return ALIEN_SWAY[((step % ALIEN_SWAY.length) + ALIEN_SWAY.length) % ALIEN_SWAY.length]!;
 }
@@ -168,18 +176,56 @@ function drawHeaderSprite(grid: string[][], x: number, y: number, sprite: readon
   }
 }
 
+function getPiCodeCells() {
+  const spriteWidth = Math.max(...PI_CODE_SPRITE.map((line) => line.length));
+  const startX = Math.floor((HEADER_FRAME_WIDTH - spriteWidth) / 2);
+  const startY = 2;
+  const centerX = startX + Math.floor(spriteWidth / 2);
+  const centerY = startY + Math.floor(PI_CODE_SPRITE.length / 2);
+  const cells: { x: number; y: number; char: string; rank: number }[] = [];
+
+  for (let y = 0; y < PI_CODE_SPRITE.length; y++) {
+    const line = PI_CODE_SPRITE[y]!;
+    for (let x = 0; x < line.length; x++) {
+      const char = line[x]!;
+      if (char === " ") continue;
+      const gx = startX + x;
+      const gy = startY + y;
+      const dx = gx - centerX;
+      const dy = gy - centerY;
+      const radius = Math.max(Math.abs(dx), Math.abs(dy));
+      const angle = Math.atan2(dy, dx);
+      // Radius first, angle second gives a center-out spiral-ish reveal.
+      const rank = radius * 1000 + ((angle + Math.PI * 2.5) % (Math.PI * 2)) * 100;
+      cells.push({ x: gx, y: gy, char, rank });
+    }
+  }
+
+  return cells.sort((a, b) => a.rank - b.rank);
+}
+
+const PI_CODE_CELLS = getPiCodeCells();
+
+function drawPiCodeReveal(grid: string[][], revealCount: number) {
+  for (const cell of PI_CODE_CELLS.slice(0, revealCount)) {
+    drawHeaderText(grid, cell.x, cell.y, cell.char);
+  }
+}
+
 function makeSpaceInvaderFrame(
   step: number,
   alive: readonly boolean[],
   cannonX: number,
-  options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean } = {},
+  options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {},
 ): HeaderFrame {
   const grid = Array.from({ length: HEADER_FRAME_HEIGHT }, () =>
     Array.from({ length: HEADER_FRAME_WIDTH }, () => " "),
   );
   const shift = alienShift(step);
 
-  if (options.piBlock) {
+  if (options.piCodeReveal !== undefined) {
+    drawPiCodeReveal(grid, options.piCodeReveal);
+  } else if (options.piBlock) {
     drawHeaderSprite(
       grid,
       Math.floor((HEADER_FRAME_WIDTH - INVADER_WIDTH) / 2),
@@ -201,7 +247,9 @@ function makeSpaceInvaderFrame(
     drawHeaderText(grid, cannonX, options.bulletY, "|");
   }
 
-  drawHeaderText(grid, cannonX, CANNON_Y, "π");
+  if (options.piCodeReveal === undefined) {
+    drawHeaderText(grid, cannonX, CANNON_Y, "π");
+  }
   return grid.map((row) => row.join(""));
 }
 
@@ -215,14 +263,14 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
   let cannonX = CANNON_START_X;
   const alive = [true, true, true];
 
-  const add = (options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean } = {}) => {
+  const add = (options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {}) => {
     frames.push(makeSpaceInvaderFrame(step, alive, cannonX, options));
     step++;
   };
 
   add();
 
-  for (const target of [0, 1, 2]) {
+  for (const target of [0, 2, 1]) {
     // Move π one space per frame until it sits under the current target.
     for (let guard = 0; guard < 90 && cannonX !== targetCenter(step, target); guard++) {
       cannonX += Math.sign(targetCenter(step, target) - cannonX);
@@ -241,11 +289,14 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
     add();
   }
 
-  // Victory: after all invaders are gone, show one alien-sized π block.
+  // Victory: after the middle invader is destroyed, reveal the PI CODE wordmark
+  // from the center outward in a spiral-ish order.
   cannonX = CANNON_START_X;
-  for (let i = 0; i < 6; i++) {
-    add({ piBlock: true });
+  for (let reveal = 0; reveal <= PI_CODE_CELLS.length; reveal += 8) {
+    add({ piCodeReveal: reveal });
   }
+  add({ piCodeReveal: PI_CODE_CELLS.length });
+  add({ piCodeReveal: PI_CODE_CELLS.length });
 
   // Make the loop seamless: the final frame is identical to frame 0.
   frames.push(makeSpaceInvaderFrame(0, [true, true, true], CANNON_START_X));
