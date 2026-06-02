@@ -98,7 +98,10 @@ function formatCodexQuota(quota: CodexQuota, theme: Theme): string {
   return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}`;
 }
 
-function formatArcadeScore(quota: CodexQuota | undefined, theme: Theme): string {
+function formatArcadeScore(
+  quota: CodexQuota | undefined,
+  theme: Theme,
+): string {
   const fg = (token: ThemeColor, s: string) => theme.fg(token, s);
   const score = String(quota?.fiveHourUsed ?? 0).padStart(7, "0");
   const highScore = String(quota?.weekUsed ?? 0).padStart(7, "0");
@@ -111,7 +114,10 @@ function formatArcadeScore(quota: CodexQuota | undefined, theme: Theme): string 
 function saveCodexQuotaCache(quota: CodexQuota) {
   try {
     fs.mkdirSync(path.dirname(CODEX_QUOTA_CACHE_PATH), { recursive: true });
-    fs.writeFileSync(CODEX_QUOTA_CACHE_PATH, JSON.stringify({ ...quota, stale: false }, null, 2));
+    fs.writeFileSync(
+      CODEX_QUOTA_CACHE_PATH,
+      JSON.stringify({ ...quota, stale: false }, null, 2),
+    );
   } catch {
     // Cache is convenience-only; ignore write failures.
   }
@@ -119,7 +125,9 @@ function saveCodexQuotaCache(quota: CodexQuota) {
 
 function loadCodexQuotaCache(): CodexQuota | undefined {
   try {
-    const cached = JSON.parse(fs.readFileSync(CODEX_QUOTA_CACHE_PATH, "utf8")) as CodexQuota;
+    const cached = JSON.parse(
+      fs.readFileSync(CODEX_QUOTA_CACHE_PATH, "utf8"),
+    ) as CodexQuota;
     return { ...cached, stale: true };
   } catch {
     return undefined;
@@ -502,7 +510,7 @@ class AnimatedPiHeader {
       ...logo.map((line) => center(bold(colorInvaderLine(line)), width)),
       "",
       center(
-        `${color(HEADER_STYLE.sparkleColor, spark)} ${bold(color(HEADER_STYLE.titleColor, "SAMSON π DEFENSE"))} ${color(HEADER_STYLE.sparkleColor, spark)}`,
+        `${color(HEADER_STYLE.sparkleColor, spark)} ${bold(color(HEADER_STYLE.titleColor, "π DEFENSE"))} ${color(HEADER_STYLE.sparkleColor, spark)}`,
         width,
       ),
       center(
@@ -545,7 +553,6 @@ export default function customHeader(pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     if (!ctx.hasUI) return;
-
 
     ctx.ui.setHeader((tui, theme) => {
       activeHeader?.dispose();
@@ -591,7 +598,10 @@ export default function customHeader(pi: ExtensionAPI) {
       lastQuotaRefreshAt = Date.now();
       if (ctx.hasUI) {
         if (quota) {
-          ctx.ui.setStatus("codex-quota", formatCodexQuota(quota, ctx.ui.theme));
+          ctx.ui.setStatus(
+            "codex-quota",
+            formatCodexQuota(quota, ctx.ui.theme),
+          );
           ctx.ui.notify(
             quota.stale ? "Using cached Codex quota" : "Refreshed Codex quota",
             quota.stale ? "warning" : "success",
@@ -601,7 +611,10 @@ export default function customHeader(pi: ExtensionAPI) {
             "codex-quota",
             ctx.ui.theme.fg("dim", "Codex quota unavailable"),
           );
-          ctx.ui.notify("Codex quota unavailable; try `codex login status`", "warning");
+          ctx.ui.notify(
+            "Codex quota unavailable; try `codex login status`",
+            "warning",
+          );
         }
       }
       activeHeader?.requestRender();
