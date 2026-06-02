@@ -19,7 +19,8 @@ type CodexQuota = {
 // These values point at colors in ~/.pi/agent/themes/my-theme.json.
 //
 // Header color mapping:
-// - animationMs: animation speed. Lower = faster, higher = slower.
+// - animationMs: base animation tick speed in milliseconds. Lower = faster,
+//   higher = slower. Per-stage speed tweaks live in SPACE_INVADER_ANIMATION below.
 // - artColors: rocket/body pixel colors, cycles by line.
 // - sparkleColor: animated π/∏/⋆/✦ symbols around the title.
 // - titleColor: "SAMSON π" title text.
@@ -125,6 +126,39 @@ with urllib.request.urlopen(req, timeout=20) as r:
 
 type HeaderFrame = string[];
 
+// -----------------------------------------------------------------------------
+// SPACE INVADERS ANIMATION TWEAKS
+// -----------------------------------------------------------------------------
+// Base/global speed:
+// - HEADER_STYLE.animationMs above controls the actual timer interval.
+// - Lower animationMs = every frame advances faster.
+//
+// Per-stage speed:
+// - The "HoldFrames" values below duplicate frames for that stage.
+// - Higher HoldFrames = that stage appears slower/pauses longer.
+// - Lower HoldFrames = that stage appears faster.
+//
+// Reveal speed:
+// - revealCharsPerFrame is the opposite: higher = faster wordmark reveal.
+//
+// Target order indexes:
+// - 0 = left invader
+// - 1 = middle invader
+// - 2 = right invader
+const SPACE_INVADER_ANIMATION = {
+  targetOrder: [0, 2, 1] as const, // current order: left -> right -> middle
+  initialPauseHoldFrames: 4,
+  moveHoldFrames: 1,
+  shotHoldFrames: 1,
+  impactHoldFrames: 4,
+  disappearPauseHoldFrames: 2,
+  revealHoldFrames: 1,
+  revealCharsPerFrame: 8,
+  finalWordmarkHoldFrames: 8,
+  loopResetHoldFrames: 2,
+};
+
+// Fixed drawing canvas for the arcade art. The final header is centered by Pi.
 const INVADER_WIDTH = 12;
 const INVADER_HEIGHT = 4;
 const HEADER_FRAME_WIDTH = 62;
@@ -156,10 +190,13 @@ const PI_CODE_SPRITE = [
   "██.      ██.     ███████. ███████  █████.   ███████.",
 ] as const;
 
+// Alien wave offset for the current logical animation step.
+// Editing ALIEN_SWAY changes the left/right dance pattern.
 function alienShift(step: number): number {
   return ALIEN_SWAY[((step % ALIEN_SWAY.length) + ALIEN_SWAY.length) % ALIEN_SWAY.length]!;
 }
 
+// Draw text onto the fixed-width frame grid without overflowing.
 function drawHeaderText(grid: string[][], x: number, y: number, text: string) {
   if (y < 0 || y >= HEADER_FRAME_HEIGHT) return;
   for (let i = 0; i < text.length; i++) {
@@ -170,12 +207,16 @@ function drawHeaderText(grid: string[][], x: number, y: number, text: string) {
   }
 }
 
+// Draw a multi-line sprite, e.g. alien, explosion block, or wordmark.
 function drawHeaderSprite(grid: string[][], x: number, y: number, sprite: readonly string[]) {
   for (let row = 0; row < sprite.length; row++) {
     drawHeaderText(grid, x, y + row, sprite[row]!);
   }
 }
 
+// Convert the final PI CODE wordmark into drawable cells sorted by reveal order.
+// The rank uses radius + angle so characters appear from the center outward in
+// a spiral-ish pattern instead of simple left-to-right drawing.
 function getPiCodeCells() {
   const spriteWidth = Math.max(...PI_CODE_SPRITE.map((line) => line.length));
   const startX = Math.floor((HEADER_FRAME_WIDTH - spriteWidth) / 2);
@@ -206,12 +247,18 @@ function getPiCodeCells() {
 
 const PI_CODE_CELLS = getPiCodeCells();
 
+// Draw the first N cells of the final wordmark reveal sequence.
 function drawPiCodeReveal(grid: string[][], revealCount: number) {
   for (const cell of PI_CODE_CELLS.slice(0, revealCount)) {
     drawHeaderText(grid, cell.x, cell.y, cell.char);
   }
 }
 
+// Build one terminal-art frame from game-like state:
+// - step controls alien sway
+// - alive controls which invaders still exist
+// - cannonX controls π position
+// - options layer in bullets, impact sprites, or final wordmark reveal
 function makeSpaceInvaderFrame(
   step: number,
   alive: readonly boolean[],
@@ -253,53 +300,73 @@ function makeSpaceInvaderFrame(
   return grid.map((row) => row.join(""));
 }
 
+// Current horizontal center of an invader after applying the wave sway.
 function targetCenter(step: number, targetIndex: number): number {
   return ALIEN_BASE_X[targetIndex]! + alienShift(step) + Math.floor(INVADER_WIDTH / 2);
 }
 
+// Precompute the entire animation once at extension load time. This keeps render()
+// cheap while still making the animation easy to tweak like game logic.
 function buildSpaceInvaderFrames(): HeaderFrame[] {
   const frames: HeaderFrame[] = [];
   let step = 0;
   let cannonX = CANNON_START_X;
   const alive = [true, true, true];
 
-  const add = (options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {}) => {
-    frames.push(makeSpaceInvaderFrame(step, alive, cannonX, options));
+  // Push the current frame. `holdFrames` repeats the same visual frame to slow
+  // a stage without changing the global timer speed.
+  const add = (
+    options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {},
+    holdFrames = 1,
+  ) => {
+    const frame = makeSpaceInvaderFrame(step, alive, cannonX, options);
+    for (let i = 0; i < holdFrames; i++) frames.push(frame);
     step++;
   };
 
-  add();
+  add({}, SPACE_INVADER_ANIMATION.initialPauseHoldFrames);
 
-  for (const target of [0, 2, 1]) {
-    // Move π one space per frame until it sits under the current target.
+  for (const target of SPACE_INVADER_ANIMATION.targetOrder) {
+    // Stage 1: move π one space per logical frame until it sits under target.
+    // Tweak speed with SPACE_INVADER_ANIMATION.moveHoldFrames.
     for (let guard = 0; guard < 90 && cannonX !== targetCenter(step, target); guard++) {
       cannonX += Math.sign(targetCenter(step, target) - cannonX);
-      add();
+      add({}, SPACE_INVADER_ANIMATION.moveHoldFrames);
     }
 
-    // Fire upward one row per frame.
+    // Stage 2: fire upward one row per logical frame.
+    // Tweak speed with SPACE_INVADER_ANIMATION.shotHoldFrames.
     for (let y = CANNON_Y - 1; y >= INVADER_HEIGHT - 1; y--) {
-      add({ bulletY: y });
+      add({ bulletY: y }, SPACE_INVADER_ANIMATION.shotHoldFrames);
     }
 
-    // Impact: the target briefly turns into a π-sized block, then disappears.
-    add({ explodeIndex: target });
-    add({ explodeIndex: target });
+    // Stage 3: impact. The target briefly turns into a π-sized block.
+    // Tweak duration with SPACE_INVADER_ANIMATION.impactHoldFrames.
+    add({ explodeIndex: target }, SPACE_INVADER_ANIMATION.impactHoldFrames);
+
+    // Stage 4: remove the destroyed invader, then pause briefly.
+    // Tweak pause with SPACE_INVADER_ANIMATION.disappearPauseHoldFrames.
     alive[target] = false;
-    add();
+    add({}, SPACE_INVADER_ANIMATION.disappearPauseHoldFrames);
   }
 
-  // Victory: after the middle invader is destroyed, reveal the PI CODE wordmark
+  // Stage 5: after the middle invader is destroyed, reveal the PI CODE wordmark
   // from the center outward in a spiral-ish order.
+  // Tweak reveal speed with revealCharsPerFrame and revealHoldFrames.
   cannonX = CANNON_START_X;
-  for (let reveal = 0; reveal <= PI_CODE_CELLS.length; reveal += 8) {
-    add({ piCodeReveal: reveal });
+  for (
+    let reveal = 0;
+    reveal <= PI_CODE_CELLS.length;
+    reveal += SPACE_INVADER_ANIMATION.revealCharsPerFrame
+  ) {
+    add({ piCodeReveal: reveal }, SPACE_INVADER_ANIMATION.revealHoldFrames);
   }
-  add({ piCodeReveal: PI_CODE_CELLS.length });
-  add({ piCodeReveal: PI_CODE_CELLS.length });
+  add({ piCodeReveal: PI_CODE_CELLS.length }, SPACE_INVADER_ANIMATION.finalWordmarkHoldFrames);
 
-  // Make the loop seamless: the final frame is identical to frame 0.
-  frames.push(makeSpaceInvaderFrame(0, [true, true, true], CANNON_START_X));
+  // Stage 6: make the loop seamless. These reset frames are identical to frame 0.
+  for (let i = 0; i < SPACE_INVADER_ANIMATION.loopResetHoldFrames; i++) {
+    frames.push(makeSpaceInvaderFrame(0, [true, true, true], CANNON_START_X));
+  }
   return frames;
 }
 
