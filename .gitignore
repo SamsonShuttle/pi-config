@@ -1,0 +1,18 @@
+# Secrets / credentials
+/auth.json
+
+# Conversation history / personal session data
+/sessions/
+
+# Pi-managed binaries / caches
+/bin/
+/cache/
+/tmp/
+
+# OS/editor junk
+.DS_Store
+*.swp
+*.swo
+
+# Dependencies, if extension packages are added later
+node_modules/
