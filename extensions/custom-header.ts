@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type {
   ExtensionAPI,
   Theme,
@@ -11,8 +14,12 @@ type TuiHandle = { requestRender: () => void };
 type CodexQuota = {
   fiveHourLeft: number;
   weekLeft: number;
+  fiveHourUsed: number;
+  weekUsed: number;
   fiveHourResetMinutes: number;
   weekResetHours: number;
+  updatedAt: number;
+  stale?: boolean;
 };
 
 // Change these once to recolor the whole header.
@@ -68,11 +75,55 @@ function center(line: string, width: number): string {
   return " ".repeat(pad) + line;
 }
 
+// How often Pi refreshes Codex quota in the background.
+// Lower = fresher UI, but if ChatGPT auth is stale/403 this does not fix it.
+// The extension caches the last successful response so the header remains useful.
+const CODEX_QUOTA_REFRESH_MS = 2 * 60 * 1000;
+
+const CODEX_QUOTA_CACHE_PATH = path.join(
+  os.homedir(),
+  ".pi",
+  "agent",
+  "cache",
+  "codex-quota.json",
+);
+
 function formatCodexQuota(quota: CodexQuota, theme: Theme): string {
   const label = (s: string) => theme.fg(HEADER_STYLE.quotaLabelColor, s);
   const value = (s: string) => theme.fg(HEADER_STYLE.quotaValueColor, s);
   const dim = (s: string) => theme.fg("dim", s);
-  return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}`;
+  const stale = quota.stale ? dim(" cached") : "";
+  return `${label("Codex")} 5h ${value(`${quota.fiveHourLeft}% left`)} ${dim(`reset ${quota.fiveHourResetMinutes}m`)} • week ${value(`${quota.weekLeft}% left`)} ${dim(`reset ${quota.weekResetHours}h`)}${stale}`;
+}
+
+function formatArcadeScore(quota: CodexQuota | undefined, theme: Theme): string {
+  const fg = (token: ThemeColor, s: string) => theme.fg(token, s);
+  const score = String(quota?.fiveHourUsed ?? 0).padStart(7, "0");
+  const highScore = String(quota?.weekUsed ?? 0).padStart(7, "0");
+  const lives = quota ? "πππ" : "π??";
+  const cached = quota?.stale ? fg("dim", " CACHED") : "";
+
+  // SCORE = 5-hour quota used %, HI-SCORE = weekly quota used %.
+  // The endpoint currently exposes percentages/reset windows, not raw token counts.
+  return `${fg("success", "SCORE<π>")} ${fg("text", score)}   ${fg("warning", "HI-SCORE")} ${fg("text", highScore)}   ${fg("success", "LIVES")} ${fg("accent", lives)}${cached}`;
+}
+
+function saveCodexQuotaCache(quota: CodexQuota) {
+  try {
+    fs.mkdirSync(path.dirname(CODEX_QUOTA_CACHE_PATH), { recursive: true });
+    fs.writeFileSync(CODEX_QUOTA_CACHE_PATH, JSON.stringify({ ...quota, stale: false }, null, 2));
+  } catch {
+    // Cache is convenience-only; ignore write failures.
+  }
+}
+
+function loadCodexQuotaCache(): CodexQuota | undefined {
+  try {
+    const cached = JSON.parse(fs.readFileSync(CODEX_QUOTA_CACHE_PATH, "utf8")) as CodexQuota;
+    return { ...cached, stale: true };
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchCodexQuota(): Promise<CodexQuota | undefined> {
@@ -106,9 +157,11 @@ with urllib.request.urlopen(req, timeout=20) as r:
     const secondary = data?.rate_limit?.secondary_window;
     if (!primary || !secondary) return undefined;
 
-    return {
+    const quota = {
       fiveHourLeft: Math.max(0, 100 - Math.round(primary.used_percent ?? 0)),
       weekLeft: Math.max(0, 100 - Math.round(secondary.used_percent ?? 0)),
+      fiveHourUsed: Math.max(0, Math.round(primary.used_percent ?? 0)),
+      weekUsed: Math.max(0, Math.round(secondary.used_percent ?? 0)),
       fiveHourResetMinutes: Math.max(
         0,
         Math.round((primary.reset_after_seconds ?? 0) / 60),
@@ -117,12 +170,14 @@ with urllib.request.urlopen(req, timeout=20) as r:
         0,
         Math.round((secondary.reset_after_seconds ?? 0) / 3600),
       ),
+      updatedAt: Date.now(),
     };
+    saveCodexQuotaCache(quota);
+    return quota;
   } catch {
-    return undefined;
+    return loadCodexQuotaCache();
   }
 }
-
 
 type HeaderFrame = string[];
 
@@ -154,7 +209,7 @@ const SPACE_INVADER_ANIMATION = {
   disappearPauseHoldFrames: 2,
   revealHoldFrames: 1,
   revealCharsPerFrame: 8,
-  finalWordmarkHoldFrames: 8,
+  finalWordmarkHoldFrames: 20,
   loopResetHoldFrames: 2,
 };
 
@@ -166,7 +221,9 @@ const HEADER_FRAME_HEIGHT = 10;
 const CANNON_Y = 8;
 const CANNON_START_X = 30;
 const ALIEN_BASE_X = [4, 23, 42] as const;
-const ALIEN_SWAY = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -4, -3, -2, -1] as const;
+const ALIEN_SWAY = [
+  0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -4, -3, -2, -1,
+] as const;
 
 const ALIEN_SPRITE = [
   "  ███████.  ",
@@ -193,7 +250,9 @@ const PI_CODE_SPRITE = [
 // Alien wave offset for the current logical animation step.
 // Editing ALIEN_SWAY changes the left/right dance pattern.
 function alienShift(step: number): number {
-  return ALIEN_SWAY[((step % ALIEN_SWAY.length) + ALIEN_SWAY.length) % ALIEN_SWAY.length]!;
+  return ALIEN_SWAY[
+    ((step % ALIEN_SWAY.length) + ALIEN_SWAY.length) % ALIEN_SWAY.length
+  ]!;
 }
 
 // Draw text onto the fixed-width frame grid without overflowing.
@@ -208,7 +267,12 @@ function drawHeaderText(grid: string[][], x: number, y: number, text: string) {
 }
 
 // Draw a multi-line sprite, e.g. alien, explosion block, or wordmark.
-function drawHeaderSprite(grid: string[][], x: number, y: number, sprite: readonly string[]) {
+function drawHeaderSprite(
+  grid: string[][],
+  x: number,
+  y: number,
+  sprite: readonly string[],
+) {
   for (let row = 0; row < sprite.length; row++) {
     drawHeaderText(grid, x, y + row, sprite[row]!);
   }
@@ -237,7 +301,8 @@ function getPiCodeCells() {
       const radius = Math.max(Math.abs(dx), Math.abs(dy));
       const angle = Math.atan2(dy, dx);
       // Radius first, angle second gives a center-out spiral-ish reveal.
-      const rank = radius * 1000 + ((angle + Math.PI * 2.5) % (Math.PI * 2)) * 100;
+      const rank =
+        radius * 1000 + ((angle + Math.PI * 2.5) % (Math.PI * 2)) * 100;
       cells.push({ x: gx, y: gy, char, rank });
     }
   }
@@ -263,7 +328,12 @@ function makeSpaceInvaderFrame(
   step: number,
   alive: readonly boolean[],
   cannonX: number,
-  options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {},
+  options: {
+    bulletY?: number;
+    explodeIndex?: number;
+    piBlock?: boolean;
+    piCodeReveal?: number;
+  } = {},
 ): HeaderFrame {
   const grid = Array.from({ length: HEADER_FRAME_HEIGHT }, () =>
     Array.from({ length: HEADER_FRAME_WIDTH }, () => " "),
@@ -302,7 +372,11 @@ function makeSpaceInvaderFrame(
 
 // Current horizontal center of an invader after applying the wave sway.
 function targetCenter(step: number, targetIndex: number): number {
-  return ALIEN_BASE_X[targetIndex]! + alienShift(step) + Math.floor(INVADER_WIDTH / 2);
+  return (
+    ALIEN_BASE_X[targetIndex]! +
+    alienShift(step) +
+    Math.floor(INVADER_WIDTH / 2)
+  );
 }
 
 // Precompute the entire animation once at extension load time. This keeps render()
@@ -316,7 +390,12 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
   // Push the current frame. `holdFrames` repeats the same visual frame to slow
   // a stage without changing the global timer speed.
   const add = (
-    options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean; piCodeReveal?: number } = {},
+    options: {
+      bulletY?: number;
+      explodeIndex?: number;
+      piBlock?: boolean;
+      piCodeReveal?: number;
+    } = {},
     holdFrames = 1,
   ) => {
     const frame = makeSpaceInvaderFrame(step, alive, cannonX, options);
@@ -329,7 +408,11 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
   for (const target of SPACE_INVADER_ANIMATION.targetOrder) {
     // Stage 1: move π one space per logical frame until it sits under target.
     // Tweak speed with SPACE_INVADER_ANIMATION.moveHoldFrames.
-    for (let guard = 0; guard < 90 && cannonX !== targetCenter(step, target); guard++) {
+    for (
+      let guard = 0;
+      guard < 90 && cannonX !== targetCenter(step, target);
+      guard++
+    ) {
       cannonX += Math.sign(targetCenter(step, target) - cannonX);
       add({}, SPACE_INVADER_ANIMATION.moveHoldFrames);
     }
@@ -361,7 +444,10 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
   ) {
     add({ piCodeReveal: reveal }, SPACE_INVADER_ANIMATION.revealHoldFrames);
   }
-  add({ piCodeReveal: PI_CODE_CELLS.length }, SPACE_INVADER_ANIMATION.finalWordmarkHoldFrames);
+  add(
+    { piCodeReveal: PI_CODE_CELLS.length },
+    SPACE_INVADER_ANIMATION.finalWordmarkHoldFrames,
+  );
 
   // Stage 6: make the loop seamless. These reset frames are identical to frame 0.
   for (let i = 0; i < SPACE_INVADER_ANIMATION.loopResetHoldFrames; i++) {
@@ -401,15 +487,13 @@ class AnimatedPiHeader {
 
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
-    const logo = SPACE_INVADER_FRAMES[this.frame % SPACE_INVADER_FRAMES.length]!;
+    const logo =
+      SPACE_INVADER_FRAMES[this.frame % SPACE_INVADER_FRAMES.length]!;
     const quota = this.getQuota();
 
     return [
       "",
-      center(
-        `${color("success", "SCORE<π>")} ${color("text", "0001978")}   ${color("warning", "HI-SCORE")} ${color("text", "0031415")}   ${color("success", "LIVES")} ${color("accent", "πππ")}`,
-        width,
-      ),
+      center(formatArcadeScore(quota, this.theme), width),
       center(
         bold(color("accent", "PI INVADERS")) + color("dim", `  v${VERSION}`),
         width,
@@ -483,7 +567,7 @@ export default function customHeader(pi: ExtensionAPI) {
     });
 
     await updateQuota();
-    quotaTimer = setInterval(updateQuota, 5 * 60 * 1000);
+    quotaTimer = setInterval(updateQuota, CODEX_QUOTA_REFRESH_MS);
   });
 
   pi.on("session_shutdown", async () => {
@@ -492,6 +576,29 @@ export default function customHeader(pi: ExtensionAPI) {
     if (quotaTimer) clearInterval(quotaTimer);
     quotaTimer = undefined;
     quota = undefined;
+  });
+
+  pi.registerCommand("codex-quota-refresh", {
+    description: "Refresh Codex quota now",
+    handler: async (_args, ctx) => {
+      quota = await fetchCodexQuota();
+      if (ctx.hasUI) {
+        if (quota) {
+          ctx.ui.setStatus("codex-quota", formatCodexQuota(quota, ctx.ui.theme));
+          ctx.ui.notify(
+            quota.stale ? "Using cached Codex quota" : "Refreshed Codex quota",
+            quota.stale ? "warning" : "success",
+          );
+        } else {
+          ctx.ui.setStatus(
+            "codex-quota",
+            ctx.ui.theme.fg("dim", "Codex quota unavailable"),
+          );
+          ctx.ui.notify("Codex quota unavailable; try `codex login status`", "warning");
+        }
+      }
+      activeHeader?.requestRender();
+    },
   });
 
   pi.registerCommand("builtin-header", {
