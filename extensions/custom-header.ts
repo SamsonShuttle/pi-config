@@ -193,6 +193,7 @@ class AnimatedPiHeader {
         "     █ █ █ █.      █ █ █ █.      █ █ █ █",
         "",
         "",
+        "",
         "                    π",
       ],
       [
@@ -223,7 +224,6 @@ class AnimatedPiHeader {
         "",
         "                        |",
         "",
-        "",
         "                               π",
       ],
       [
@@ -232,7 +232,6 @@ class AnimatedPiHeader {
         " ███████████.  ███████████.  ███████████",
         "   █ █ █ █.      █ █ █ █.      █ █ █ █",
         "                        |",
-        "",
         "",
         "",
         "                           π",
@@ -245,13 +244,53 @@ class AnimatedPiHeader {
         "",
         "",
         "",
+        "                    π",
+      ],
+      [
+        "     ███████.        *   *        ███████.",
+        "     █ ███ █.          π          █ ███ █",
+        "   ███████████.      πππ      .███████████",
+        "     █ █ █ █.        * *        █ █ █ █",
+        "",
+        "",
+        "",
+        "                    π",
+      ],
+      [
+        "   ███████.                     ███████.",
+        "   █ ███ █.         π π         █ ███ █",
+        " ███████████.                   ███████████",
+        "   █ █ █ █.                     █ █ █ █",
+        "",
+        "",
+        "",
+        "                    π",
+      ],
+      [
+        "   ███████.      ███████.      ███████.",
+        "   █ ███ █.      █ ███ █.      █ ███ █",
+        " ███████████.  ███████████.  ███████████",
+        "   █ █ █ █.      █ █ █ █.      █ █ █ █",
+        "",
+        "",
+        "",
+        "                    π",
+      ],
+      [
+        "     ███████.      ███████.      ███████.",
+        "     █ ███ █.      █ ███ █.      █ ███ █",
+        "   ███████████.  ███████████.  ███████████",
+        "     █ █ █ █.      █ █ █ █.      █ █ █ █",
+        "",
+        "",
         "",
         "                    π",
       ],
     ];
 
-
-    const frameWidth = Math.max(...frames.flat().map((line) => visibleLength(line)));
+    const frameWidth = Math.max(
+      ...frames.flat().map((line) => visibleLength(line)),
+    );
     const frameHeight = Math.max(...frames.map((frame) => frame.length));
     const normalizeFrame = (frame: string[]) => {
       const topPad = Math.floor((frameHeight - frame.length) / 2);
@@ -260,7 +299,10 @@ class AnimatedPiHeader {
         ...Array.from({ length: topPad }, () => ""),
         ...frame,
         ...Array.from({ length: bottomPad }, () => ""),
-      ].map((line) => line + " ".repeat(Math.max(0, frameWidth - visibleLength(line))));
+      ].map(
+        (line) =>
+          line + " ".repeat(Math.max(0, frameWidth - visibleLength(line))),
+      );
     };
 
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
