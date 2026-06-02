@@ -231,7 +231,7 @@ const SPACE_INVADER_ANIMATION = {
   targetOrder: [0, 2, 1] as const, // current order: left -> right -> middle
   initialPauseHoldFrames: 1,
   moveHoldFrames: 1,
-  firstTargetMoveStep: 2, // π moves this many columns per frame only before first shot
+  firstTargetMoveStep: 1, // π moves this many columns per frame only before first shot
   moveStep: 1, // π moves this many columns per frame after first shot
   shotHoldFrames: 1,
   impactHoldFrames: 4,
@@ -434,11 +434,16 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
 
   add({}, SPACE_INVADER_ANIMATION.initialPauseHoldFrames);
 
-  for (let targetIndex = 0; targetIndex < SPACE_INVADER_ANIMATION.targetOrder.length; targetIndex++) {
+  for (
+    let targetIndex = 0;
+    targetIndex < SPACE_INVADER_ANIMATION.targetOrder.length;
+    targetIndex++
+  ) {
     const target = SPACE_INVADER_ANIMATION.targetOrder[targetIndex]!;
-    const moveStep = targetIndex === 0
-      ? SPACE_INVADER_ANIMATION.firstTargetMoveStep
-      : SPACE_INVADER_ANIMATION.moveStep;
+    const moveStep =
+      targetIndex === 0
+        ? SPACE_INVADER_ANIMATION.firstTargetMoveStep
+        : SPACE_INVADER_ANIMATION.moveStep;
     const firingX = targetCenter(step, target);
 
     // Stage 1: move π toward a fixed firing position for this target.
