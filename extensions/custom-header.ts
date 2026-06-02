@@ -36,7 +36,7 @@ type CodexQuota = {
 // Valid theme tokens include: accent, borderAccent, success, error,
 // warning, muted, dim, text, toolTitle, mdHeading, syntaxKeyword, etc.
 const HEADER_STYLE = {
-  animationMs: 500,
+  animationMs: 160,
   artColors: [
     "accent",
     "borderAccent",
@@ -122,6 +122,138 @@ with urllib.request.urlopen(req, timeout=20) as r:
   }
 }
 
+
+type HeaderFrame = string[];
+
+const INVADER_WIDTH = 12;
+const INVADER_HEIGHT = 4;
+const HEADER_FRAME_WIDTH = 62;
+const HEADER_FRAME_HEIGHT = 10;
+const CANNON_Y = 8;
+const CANNON_START_X = 30;
+const ALIEN_BASE_X = [4, 23, 42] as const;
+const ALIEN_SWAY = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -4, -3, -2, -1] as const;
+
+const ALIEN_SPRITE = [
+  "  ███████.  ",
+  "  █ ███ █   ",
+  "███████████.",
+  "  █ █ █ █   ",
+] as const;
+
+const PI_BLOCK_SPRITE = [
+  "    ππππ    ",
+  "  ππ π ππ   ",
+  "πππππππππππ.",
+  "  π π π π   ",
+] as const;
+
+function alienShift(step: number): number {
+  return ALIEN_SWAY[((step % ALIEN_SWAY.length) + ALIEN_SWAY.length) % ALIEN_SWAY.length]!;
+}
+
+function drawHeaderText(grid: string[][], x: number, y: number, text: string) {
+  if (y < 0 || y >= HEADER_FRAME_HEIGHT) return;
+  for (let i = 0; i < text.length; i++) {
+    const xx = x + i;
+    if (xx >= 0 && xx < HEADER_FRAME_WIDTH && text[i] !== " ") {
+      grid[y]![xx] = text[i]!;
+    }
+  }
+}
+
+function drawHeaderSprite(grid: string[][], x: number, y: number, sprite: readonly string[]) {
+  for (let row = 0; row < sprite.length; row++) {
+    drawHeaderText(grid, x, y + row, sprite[row]!);
+  }
+}
+
+function makeSpaceInvaderFrame(
+  step: number,
+  alive: readonly boolean[],
+  cannonX: number,
+  options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean } = {},
+): HeaderFrame {
+  const grid = Array.from({ length: HEADER_FRAME_HEIGHT }, () =>
+    Array.from({ length: HEADER_FRAME_WIDTH }, () => " "),
+  );
+  const shift = alienShift(step);
+
+  if (options.piBlock) {
+    drawHeaderSprite(
+      grid,
+      Math.floor((HEADER_FRAME_WIDTH - INVADER_WIDTH) / 2),
+      0,
+      PI_BLOCK_SPRITE,
+    );
+  } else {
+    for (let index = 0; index < ALIEN_BASE_X.length; index++) {
+      const x = ALIEN_BASE_X[index]! + shift;
+      if (options.explodeIndex === index) {
+        drawHeaderSprite(grid, x, 0, PI_BLOCK_SPRITE);
+      } else if (alive[index]) {
+        drawHeaderSprite(grid, x, 0, ALIEN_SPRITE);
+      }
+    }
+  }
+
+  if (options.bulletY !== undefined) {
+    drawHeaderText(grid, cannonX, options.bulletY, "|");
+  }
+
+  drawHeaderText(grid, cannonX, CANNON_Y, "π");
+  return grid.map((row) => row.join(""));
+}
+
+function targetCenter(step: number, targetIndex: number): number {
+  return ALIEN_BASE_X[targetIndex]! + alienShift(step) + Math.floor(INVADER_WIDTH / 2);
+}
+
+function buildSpaceInvaderFrames(): HeaderFrame[] {
+  const frames: HeaderFrame[] = [];
+  let step = 0;
+  let cannonX = CANNON_START_X;
+  const alive = [true, true, true];
+
+  const add = (options: { bulletY?: number; explodeIndex?: number; piBlock?: boolean } = {}) => {
+    frames.push(makeSpaceInvaderFrame(step, alive, cannonX, options));
+    step++;
+  };
+
+  add();
+
+  for (const target of [0, 1, 2]) {
+    // Move π one space per frame until it sits under the current target.
+    for (let guard = 0; guard < 90 && cannonX !== targetCenter(step, target); guard++) {
+      cannonX += Math.sign(targetCenter(step, target) - cannonX);
+      add();
+    }
+
+    // Fire upward one row per frame.
+    for (let y = CANNON_Y - 1; y >= INVADER_HEIGHT - 1; y--) {
+      add({ bulletY: y });
+    }
+
+    // Impact: the target briefly turns into a π-sized block, then disappears.
+    add({ explodeIndex: target });
+    add({ explodeIndex: target });
+    alive[target] = false;
+    add();
+  }
+
+  // Victory: after all invaders are gone, show one alien-sized π block.
+  cannonX = CANNON_START_X;
+  for (let i = 0; i < 6; i++) {
+    add({ piBlock: true });
+  }
+
+  // Make the loop seamless: the final frame is identical to frame 0.
+  frames.push(makeSpaceInvaderFrame(0, [true, true, true], CANNON_START_X));
+  return frames;
+}
+
+const SPACE_INVADER_FRAMES = buildSpaceInvaderFrames();
+
 class AnimatedPiHeader {
   private frame = 0;
   private timer: ReturnType<typeof setInterval>;
@@ -143,171 +275,15 @@ class AnimatedPiHeader {
     const colorInvaderLine = (line: string) => {
       let out = line;
       out = out.replace(/BOOM/g, color("error", "BOOM"));
-      out = out.replace(/[│*]+/g, (m) => color("warning", m));
+      out = out.replace(/[│|*]+/g, (m) => color("warning", m));
       out = out.replace(/π/g, color("accent", "π"));
       out = out.replace(/[▄█▀]+/g, (m) => color("success", m));
       return out;
     };
 
-    // Big math π symbol. Each frame is the same symbol with tiny pixel/sparkle changes.
-    // const frames = [
-    //   [
-    //     "   ███████████████   ",
-    //     "      ███     ███    ",
-    //     "      ███     ███    ",
-    //     "      ███     ███    ",
-    //     "      ███     ███    ",
-    //     "     ████     ████   ",
-    //   ],
-    //   [
-    //     " ✦ ███████████████   ",
-    //     "      ▓██     ██▓    ",
-    //     "      ▓██     ██▓    ",
-    //     "      ▓██     ██▓    ",
-    //     "      ▓██     ██▓    ",
-    //     "     ▓███     ███▓ ✦ ",
-    //   ],
-    //   [
-    //     "   ▒█████████████▒   ",
-    //     "      ███  ∙  ███    ",
-    //     "      ███     ███    ",
-    //     "      ███     ███    ",
-    //     "   ∙  ███     ███    ",
-    //     "     ████     ████   ",
-    //   ],
-    //   [
-    //     "   ███████████████ ✧ ",
-    //     "      ███     ███    ",
-    //     "      ███     ███    ",
-    //     "      ███  ∙  ███    ",
-    //     "      ███     ███    ",
-    //     " ✧  ████     ████    ",
-    //   ],
-    // ];
-
-    const frames = [
-      [
-        "     ███████.      ███████.      ███████.",
-        "     █ ███ █.      █ ███ █.      █ ███ █",
-        "   ███████████.  ███████████.  ███████████",
-        "     █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-      [
-        "       ███████.      ███████.      ███████.",
-        "       █ ███ █.      █ ███ █.      █ ███ █",
-        "     ███████████.  ███████████.  ███████████",
-        "       █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "",
-        "                        |",
-        "                        π",
-      ],
-      [
-        "         ███████.      ███████.      ███████.",
-        "         █ ███ █.      █ ███ █.      █ ███ █",
-        "       ███████████.  ███████████.  ███████████",
-        "         █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "                        |",
-        "",
-        "                            π",
-      ],
-      [
-        "      ███████.      ███████.      ███████.",
-        "      █ ███ █.      █ ███ █.      █ ███ █",
-        "    ███████████.  ███████████.  ███████████",
-        "      █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "                        |",
-        "",
-        "                               π",
-      ],
-      [
-        "   ███████.      ███████.      ███████.",
-        "   █ ███ █.      █ ███ █.      █ ███ █",
-        " ███████████.  ███████████.  ███████████",
-        "   █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "                        |",
-        "",
-        "",
-        "                           π",
-      ],
-      [
-        "     ███████.         ***         ███████.",
-        "     █ ███ █.      **  π  **      █ ███ █",
-        "   ███████████.   ***  π  ***   ███████████",
-        "     █ █ █ █.       **   **       █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-      [
-        "     ███████.        *   *        ███████.",
-        "     █ ███ █.          π          █ ███ █",
-        "   ███████████.      πππ      .███████████",
-        "     █ █ █ █.        * *        █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-      [
-        "   ███████.                     ███████.",
-        "   █ ███ █.         π π         █ ███ █",
-        " ███████████.                   ███████████",
-        "   █ █ █ █.                     █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-      [
-        "   ███████.      ███████.      ███████.",
-        "   █ ███ █.      █ ███ █.      █ ███ █",
-        " ███████████.  ███████████.  ███████████",
-        "   █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-      [
-        "     ███████.      ███████.      ███████.",
-        "     █ ███ █.      █ ███ █.      █ ███ █",
-        "   ███████████.  ███████████.  ███████████",
-        "     █ █ █ █.      █ █ █ █.      █ █ █ █",
-        "",
-        "",
-        "",
-        "                    π",
-      ],
-    ];
-
-    const frameWidth = Math.max(
-      ...frames.flat().map((line) => visibleLength(line)),
-    );
-    const frameHeight = Math.max(...frames.map((frame) => frame.length));
-    const normalizeFrame = (frame: string[]) => {
-      const topPad = Math.floor((frameHeight - frame.length) / 2);
-      const bottomPad = frameHeight - frame.length - topPad;
-      return [
-        ...Array.from({ length: topPad }, () => ""),
-        ...frame,
-        ...Array.from({ length: bottomPad }, () => ""),
-      ].map(
-        (line) =>
-          line + " ".repeat(Math.max(0, frameWidth - visibleLength(line))),
-      );
-    };
-
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
-    const logo = normalizeFrame(frames[this.frame % frames.length]!);
+    const logo = SPACE_INVADER_FRAMES[this.frame % SPACE_INVADER_FRAMES.length]!;
     const quota = this.getQuota();
 
     return [
