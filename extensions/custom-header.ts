@@ -51,7 +51,7 @@ type CodexQuota = {
 //   higher = slower. Per-stage speed tweaks live in SPACE_INVADER_ANIMATION below.
 // - artColors: rocket/body pixel colors, cycles by line.
 // - sparkleColor: animated π/∏/⋆/✦ symbols around the title.
-// - titleColor: "SAMSON π" title text.
+// - titleColor: "π" title text.
 // - versionColor: small pi version text.
 // - leftDotColor: left status dot before subtitle.
 // - rightDotColor: right status dot before theme name.
@@ -218,6 +218,7 @@ type HeaderFrame = string[];
 // - The "HoldFrames" values below duplicate frames for that stage.
 // - Higher HoldFrames = that stage appears slower/pauses longer.
 // - Lower HoldFrames = that stage appears faster.
+// - firstTargetMoveStep/moveStep control how many columns π moves per frame.
 //
 // Reveal speed:
 // - revealCharsPerFrame is the opposite: higher = faster wordmark reveal.
@@ -228,8 +229,10 @@ type HeaderFrame = string[];
 // - 2 = right invader
 const SPACE_INVADER_ANIMATION = {
   targetOrder: [0, 2, 1] as const, // current order: left -> right -> middle
-  initialPauseHoldFrames: 4,
+  initialPauseHoldFrames: 1,
   moveHoldFrames: 1,
+  firstTargetMoveStep: 2, // π moves this many columns per frame only before first shot
+  moveStep: 1, // π moves this many columns per frame after first shot
   shotHoldFrames: 1,
   impactHoldFrames: 4,
   disappearPauseHoldFrames: 2,
@@ -245,7 +248,7 @@ const INVADER_HEIGHT = 4;
 const HEADER_FRAME_WIDTH = 62;
 const HEADER_FRAME_HEIGHT = 10;
 const CANNON_Y = 8;
-const CANNON_START_X = 30;
+const CANNON_START_X = 28;
 const ALIEN_BASE_X = [4, 23, 42] as const;
 const ALIEN_SWAY = [
   0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -4, -3, -2, -1,
@@ -431,15 +434,21 @@ function buildSpaceInvaderFrames(): HeaderFrame[] {
 
   add({}, SPACE_INVADER_ANIMATION.initialPauseHoldFrames);
 
-  for (const target of SPACE_INVADER_ANIMATION.targetOrder) {
-    // Stage 1: move π one space per logical frame until it sits under target.
-    // Tweak speed with SPACE_INVADER_ANIMATION.moveHoldFrames.
-    for (
-      let guard = 0;
-      guard < 90 && cannonX !== targetCenter(step, target);
-      guard++
-    ) {
-      cannonX += Math.sign(targetCenter(step, target) - cannonX);
+  for (let targetIndex = 0; targetIndex < SPACE_INVADER_ANIMATION.targetOrder.length; targetIndex++) {
+    const target = SPACE_INVADER_ANIMATION.targetOrder[targetIndex]!;
+    const moveStep = targetIndex === 0
+      ? SPACE_INVADER_ANIMATION.firstTargetMoveStep
+      : SPACE_INVADER_ANIMATION.moveStep;
+    const firingX = targetCenter(step, target);
+
+    // Stage 1: move π toward a fixed firing position for this target.
+    // This avoids π chasing the alien sway forever and makes the first shot
+    // timing predictable.
+    // Tweak frame hold with moveHoldFrames and distance per frame with
+    // firstTargetMoveStep / moveStep.
+    for (let guard = 0; guard < 90 && cannonX !== firingX; guard++) {
+      const distance = firingX - cannonX;
+      cannonX += Math.sign(distance) * Math.min(Math.abs(distance), moveStep);
       add({}, SPACE_INVADER_ANIMATION.moveHoldFrames);
     }
 
