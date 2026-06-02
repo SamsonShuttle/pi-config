@@ -120,6 +120,14 @@ class AnimatedPiHeader {
   render(width: number): string[] {
     const color = (token: ThemeColor, s: string) => this.theme.fg(token, s);
     const bold = (s: string) => this.theme.bold(s);
+    const colorInvaderLine = (line: string) => {
+      let out = line;
+      out = out.replace(/BOOM/g, color("error", "BOOM"));
+      out = out.replace(/[│*]+/g, (m) => color("warning", m));
+      out = out.replace(/π/g, color("accent", "π"));
+      out = out.replace(/[▄█▀]+/g, (m) => color("success", m));
+      return out;
+    };
 
     // Big math π symbol. Each frame is the same symbol with tiny pixel/sparkle changes.
     // const frames = [
@@ -387,15 +395,17 @@ class AnimatedPiHeader {
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
     const logo = frames[this.frame % frames.length];
-    const colors = HEADER_STYLE.artColors;
     const quota = this.getQuota();
 
     return [
       "",
-      ...logo.map((line, i) => center(bold(color(colors[i % colors.length]!, line)), width)),
+      center(`${color("success", "SCORE<π>")} ${color("text", "0001978")}   ${color("warning", "HI-SCORE")} ${color("text", "0031415")}   ${color("success", "LIVES")} ${color("accent", "πππ")}`, width),
+      center(bold(color("accent", "PI INVADERS")) + color("dim", `  v${VERSION}`), width),
+      "",
+      ...logo.map((line) => center(bold(colorInvaderLine(line)), width)),
       "",
       center(
-        `${color(HEADER_STYLE.sparkleColor, spark)} ${bold(color(HEADER_STYLE.titleColor, "SAMSON π"))} ${color(HEADER_STYLE.versionColor, `v${VERSION}`)} ${color(HEADER_STYLE.sparkleColor, spark)}`,
+        `${color(HEADER_STYLE.sparkleColor, spark)} ${bold(color(HEADER_STYLE.titleColor, "SAMSON π DEFENSE"))} ${color(HEADER_STYLE.sparkleColor, spark)}`,
         width,
       ),
       center(
