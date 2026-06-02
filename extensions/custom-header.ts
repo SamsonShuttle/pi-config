@@ -1,5 +1,9 @@
 import { execFileSync } from "node:child_process";
-import type { ExtensionAPI, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  Theme,
+  ThemeColor,
+} from "@earendil-works/pi-coding-agent";
 import { VERSION } from "@earendil-works/pi-coding-agent";
 
 type TuiHandle = { requestRender: () => void };
@@ -33,7 +37,14 @@ type CodexQuota = {
 // warning, muted, dim, text, toolTitle, mdHeading, syntaxKeyword, etc.
 const HEADER_STYLE = {
   animationMs: 500,
-  artColors: ["accent", "borderAccent", "accent", "borderAccent", "accent", "borderAccent"] as ThemeColor[],
+  artColors: [
+    "accent",
+    "borderAccent",
+    "accent",
+    "borderAccent",
+    "accent",
+    "borderAccent",
+  ] as ThemeColor[],
   sparkleColor: "warning" as ThemeColor,
   titleColor: "accent" as ThemeColor,
   versionColor: "dim" as ThemeColor,
@@ -85,7 +96,10 @@ req = urllib.request.Request(
 with urllib.request.urlopen(req, timeout=20) as r:
     print(r.read().decode("utf-8"))
 `;
-    const raw = execFileSync("python3", ["-c", script], { encoding: "utf8", timeout: 30000 });
+    const raw = execFileSync("python3", ["-c", script], {
+      encoding: "utf8",
+      timeout: 30000,
+    });
     const data = JSON.parse(raw) as any;
     const primary = data?.rate_limit?.primary_window;
     const secondary = data?.rate_limit?.secondary_window;
@@ -94,8 +108,14 @@ with urllib.request.urlopen(req, timeout=20) as r:
     return {
       fiveHourLeft: Math.max(0, 100 - Math.round(primary.used_percent ?? 0)),
       weekLeft: Math.max(0, 100 - Math.round(secondary.used_percent ?? 0)),
-      fiveHourResetMinutes: Math.max(0, Math.round((primary.reset_after_seconds ?? 0) / 60)),
-      weekResetHours: Math.max(0, Math.round((secondary.reset_after_seconds ?? 0) / 3600)),
+      fiveHourResetMinutes: Math.max(
+        0,
+        Math.round((primary.reset_after_seconds ?? 0) / 60),
+      ),
+      weekResetHours: Math.max(
+        0,
+        Math.round((secondary.reset_after_seconds ?? 0) / 3600),
+      ),
     };
   } catch {
     return undefined;
@@ -167,7 +187,7 @@ class AnimatedPiHeader {
 
     const frames = [
       [
-        "███████.      ███████.      ███████.",
+        "     ███████.      ███████.      ███████.",
         "     █ ███ █.      █ ███ █.      █ ███ █",
         "   ███████████.  ███████████.  ███████████",
         "     █ █ █ █.      █ █ █ █.      █ █ █ █",
@@ -230,15 +250,34 @@ class AnimatedPiHeader {
       ],
     ];
 
+
+    const frameWidth = Math.max(...frames.flat().map((line) => visibleLength(line)));
+    const frameHeight = Math.max(...frames.map((frame) => frame.length));
+    const normalizeFrame = (frame: string[]) => {
+      const topPad = Math.floor((frameHeight - frame.length) / 2);
+      const bottomPad = frameHeight - frame.length - topPad;
+      return [
+        ...Array.from({ length: topPad }, () => ""),
+        ...frame,
+        ...Array.from({ length: bottomPad }, () => ""),
+      ].map((line) => line + " ".repeat(Math.max(0, frameWidth - visibleLength(line))));
+    };
+
     const sparkleFrames = ["π", "∏", "π", "⋆", "π", "✦"];
     const spark = sparkleFrames[this.frame % sparkleFrames.length];
-    const logo = frames[this.frame % frames.length];
+    const logo = normalizeFrame(frames[this.frame % frames.length]!);
     const quota = this.getQuota();
 
     return [
       "",
-      center(`${color("success", "SCORE<π>")} ${color("text", "0001978")}   ${color("warning", "HI-SCORE")} ${color("text", "0031415")}   ${color("success", "LIVES")} ${color("accent", "πππ")}`, width),
-      center(bold(color("accent", "PI INVADERS")) + color("dim", `  v${VERSION}`), width),
+      center(
+        `${color("success", "SCORE<π>")} ${color("text", "0001978")}   ${color("warning", "HI-SCORE")} ${color("text", "0031415")}   ${color("success", "LIVES")} ${color("accent", "πππ")}`,
+        width,
+      ),
+      center(
+        bold(color("accent", "PI INVADERS")) + color("dim", `  v${VERSION}`),
+        width,
+      ),
       "",
       ...logo.map((line) => center(bold(colorInvaderLine(line)), width)),
       "",
@@ -250,7 +289,12 @@ class AnimatedPiHeader {
         `${color(HEADER_STYLE.leftDotColor, "●")} ${color(HEADER_STYLE.subtitleColor, "custom coding terminal")} ${color(HEADER_STYLE.rightDotColor, "●")} ${color(HEADER_STYLE.subtitleColor, "atom one dark black")}`,
         width,
       ),
-      center(quota ? formatCodexQuota(quota, this.theme) : color(HEADER_STYLE.versionColor, "Codex quota loading/unavailable"), width),
+      center(
+        quota
+          ? formatCodexQuota(quota, this.theme)
+          : color(HEADER_STYLE.versionColor, "Codex quota loading/unavailable"),
+        width,
+      ),
       center(
         `${color(HEADER_STYLE.tipKeyColor, "@file")} ${color(HEADER_STYLE.tipTextColor, "attach/read files")}  ${color(HEADER_STYLE.tipKeyColor, "!cmd")} ${color(HEADER_STYLE.tipTextColor, "run shell + share output")}  ${color(HEADER_STYLE.tipKeyColor, "!!cmd")} ${color(HEADER_STYLE.tipTextColor, "run shell private")}`,
         width,
@@ -287,7 +331,10 @@ export default function customHeader(pi: ExtensionAPI) {
       if (quota) {
         ctx.ui.setStatus("codex-quota", formatCodexQuota(quota, ctx.ui.theme));
       } else {
-        ctx.ui.setStatus("codex-quota", ctx.ui.theme.fg("dim", "Codex quota unavailable"));
+        ctx.ui.setStatus(
+          "codex-quota",
+          ctx.ui.theme.fg("dim", "Codex quota unavailable"),
+        );
       }
       activeHeader?.invalidate();
       activeHeader?.requestRender();
