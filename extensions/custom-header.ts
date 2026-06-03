@@ -207,6 +207,15 @@ with urllib.request.urlopen(req, timeout=20) as r:
 
 type HeaderFrame = string[];
 
+// VS Code terminal scrollback jumps when a TUI is constantly repainting.
+// Keep animation enabled in normal terminals, but make it static in VS Code.
+// Override any terminal with:
+//   PI_HEADER_STATIC=1 pi   -> force static
+//   PI_HEADER_STATIC=0 pi   -> force animated
+const HEADER_ANIMATION_STATIC =
+  process.env.PI_HEADER_STATIC === "1" ||
+  (process.env.PI_HEADER_STATIC !== "0" && process.env.TERM_PROGRAM === "vscode");
+
 // -----------------------------------------------------------------------------
 // SPACE INVADERS ANIMATION TWEAKS
 // -----------------------------------------------------------------------------
@@ -500,17 +509,19 @@ const SPACE_INVADER_FRAMES = buildSpaceInvaderFrames();
 
 class AnimatedPiHeader {
   private frame = 0;
-  private timer: ReturnType<typeof setInterval>;
+  private timer: ReturnType<typeof setInterval> | undefined;
 
   constructor(
     private tui: TuiHandle,
     private theme: Theme,
     private getQuota: () => CodexQuota | undefined,
   ) {
-    this.timer = setInterval(() => {
-      this.frame++;
-      this.tui.requestRender();
-    }, HEADER_STYLE.animationMs);
+    if (!HEADER_ANIMATION_STATIC) {
+      this.timer = setInterval(() => {
+        this.frame++;
+        this.tui.requestRender();
+      }, HEADER_STYLE.animationMs);
+    }
   }
 
   render(width: number): string[] {
@@ -574,7 +585,7 @@ class AnimatedPiHeader {
   }
 
   dispose() {
-    clearInterval(this.timer);
+    if (this.timer) clearInterval(this.timer);
   }
 }
 
